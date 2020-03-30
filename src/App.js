@@ -1,4 +1,5 @@
-import React, {useEffect, useReducer} from 'react';
+import React, {useEffect, useReducer, useState} from 'react';
+import Sound from 'react-sound';
 import Board from 'components/Board';
 import Result from 'components/Result';
 import Start from 'components/Start';
@@ -9,6 +10,7 @@ import getCellKey from 'utils/getCellKey';
 import getPlayableCells from 'utils/getPlayableCells';
 import sumCoordinates from 'utils/sumCoordinates';
 import playerCanChangeToDirection from 'utils/playerCanChangeToDirection';
+import ship from 'assets/ship.ogg';
 import './App.css';
 
 const players = generatePlayers();
@@ -82,6 +84,7 @@ function updateGame(state, action) {
 
 function App() {
   const [game, gameDispatch] = useReducer(updateGame, initialGame);
+  const [isPlaying, setIsPlaying] = useState(false);
   let result = '';
 
   useInterval(
@@ -93,6 +96,7 @@ function App() {
 
   function handleStart() {
     gameDispatch({type: 'start'});
+    setIsPlaying(true);
   }
 
   function handleRestart() {
@@ -108,7 +112,7 @@ function App() {
       }
       if (key === '13') {
         if (game.gameStatus === GAME_READY) {
-          handleStart()
+          handleStart();
         }
         if (game.gameStatus === GAME_ENDED) {
           handleRestart();
@@ -131,9 +135,9 @@ function App() {
     }
   }
 
-
   return (
     <>
+      {isPlaying && <Sound url={ship} playStatus={Sound.status.PLAYING} />}
       <h1 className="title">Reacted Tron</h1>
       <Board players={game.players} gameStatus={game.gameStatus} width={WIDTH} height={HEIGHT} />
       {game.gameStatus === GAME_ENDED && <Result onClick={handleRestart} result={result} />}

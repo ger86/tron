@@ -1,4 +1,10 @@
 export const UNIT = 15;
+
+export const GAME_READY = 1;
+export const GAME_PLAYING = 2;
+export const GAME_ENDED = 3;
+
+export const DELAY = 100;
 export const WIDTH = 750;
 export const HEIGHT = 750;
 export const DIRECTIONS = {

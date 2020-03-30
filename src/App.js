@@ -1,60 +1,18 @@
-import React, {useEffect, useReducer, useState} from 'react';
+import React, {useEffect, useReducer} from 'react';
 import Board from 'components/Board';
+import Result from 'components/Result';
+import Start from 'components/Start';
 import useInterval from 'hooks/useInterval';
-import {DIRECTIONS, UNIT, PLAYER_ONE, PLAYER_TWO, WIDTH, HEIGHT} from 'config/consts';
+import {DELAY, GAME_READY, GAME_PLAYING, GAME_ENDED, WIDTH, HEIGHT} from 'config/consts';
+import generatePlayers from 'utils/generatePlayers';
+import getCellKey from 'utils/getCellKey';
+import getPlayableCells from 'utils/getPlayableCells';
+import sumCoordinates from 'utils/sumCoordinates';
+import playerCanChangeToDirection from 'utils/playerCanChangeToDirection';
 import './App.css';
 
-const playerOne = {
-  id: PLAYER_ONE.ID,
-  position: {x: UNIT * 6, y: UNIT * 6},
-  direction: DIRECTIONS.RIGHT,
-  color: PLAYER_ONE.COLOR,
-  keysMap: PLAYER_ONE.KEYS,
-  hasDied: false
-};
-
-const playerTwo = {
-  id: PLAYER_TWO.ID,
-  direction: DIRECTIONS.LEFT,
-  position: {x: UNIT * 43, y: UNIT * 43},
-  color: PLAYER_TWO.COLOR,
-  keysMap: PLAYER_TWO.KEYS,
-  hasDied: false
-};
-
-const players = [playerOne, playerTwo];
-
-function sumCoordinates(coordA, coordB) {
-  return Object.keys(coordA).reduce(
-    (positionObject, coordinate) => ({
-      ...positionObject,
-      [coordinate]: coordA[coordinate] + coordB[coordinate]
-    }),
-    {}
-  );
-}
-
-function canChangeDirection(currentDirection, nextDirection) {
-  const result = sumCoordinates(currentDirection, nextDirection);
-  return Object.keys(result).filter(coordinate => result[coordinate] !== 0).length > 0;
-}
-
-function getCellKey(x, y) {
-  return `${x * UNIT}${y * UNIT}`;
-}
-
-function getPlayableCells(width, height, initialPlayersPositions) {
-  const playableCells = [];
-  for (let i = 0; i < width / UNIT; i++) {
-    for (let j = 0; j < height / UNIT; j++) {
-      const cellKey = getCellKey(i * UNIT, j * UNIT);
-      if (!initialPlayersPositions.includes(cellKey)) {
-        playableCells.push(cellKey);
-      }
-    }
-  }
-  return playableCells;
-}
+const players = generatePlayers();
+const KEYS_FOR_PLAYING = players.map(player => Object.keys(player.keysMap)).flat();
 
 const initialGame = {
   players,
@@ -62,10 +20,17 @@ const initialGame = {
     WIDTH,
     HEIGHT,
     players.map(player => getCellKey(player.position.x, player.position.y))
-  )
+  ),
+  gameStatus: GAME_READY
 };
 
 function updateGame(state, action) {
+  if (action.type === 'start') {
+    return {...initialGame, gameStatus: GAME_PLAYING};
+  }
+  if (action.type === 'restart') {
+    return {...initialGame, gameStatus: GAME_READY};
+  }
   if (action.type === 'move') {
     let players = state.players.map(player => ({
       ...player,
@@ -94,17 +59,19 @@ function updateGame(state, action) {
 
     return {
       playableCells,
-      players
+      players,
+      gameStatus: players.filter(player => player.hasDied).length === 0 ? GAME_PLAYING : GAME_ENDED
     };
   }
   if (action.type === 'changeDirection') {
     return {
+      gameStatus: state.gameStatus,
       playableCells: state.playableCells,
       players: state.players.map(player => ({
         ...player,
         direction:
           player.keysMap[action.key] &&
-          canChangeDirection(player.direction, player.keysMap[action.key])
+          playerCanChangeToDirection(player.direction, player.keysMap[action.key])
             ? player.keysMap[action.key]
             : player.direction
       }))
@@ -115,24 +82,37 @@ function updateGame(state, action) {
 
 function App() {
   const [game, gameDispatch] = useReducer(updateGame, initialGame);
-  const [delay, setDelay] = useState(100);
+  let result = '';
 
-  const diedPlayers = game.players.filter(player => player.hasDied);
-  if (diedPlayers.length > 0 && delay) {
-    setDelay(null);
-    console.log(diedPlayers.map(player => player.id));
+  useInterval(
+    function() {
+      gameDispatch({type: 'move'});
+    },
+    game.gameStatus === GAME_PLAYING ? DELAY : null
+  );
+
+  function handleStart() {
+    gameDispatch({type: 'start'});
   }
 
-  useInterval(function() {
-    gameDispatch({type: 'move'});
-  }, delay);
+  function handleRestart() {
+    gameDispatch({type: 'restart'});
+  }
 
   useEffect(() => {
     function handleKeyPress(event) {
       const key = `${event.keyCode}`;
-      if ([...Object.keys(PLAYER_ONE.KEYS), ...Object.keys(PLAYER_TWO.KEYS)].includes(key)) {
+      if (KEYS_FOR_PLAYING.includes(key)) {
         event.preventDefault();
         gameDispatch({type: 'changeDirection', key});
+      }
+      if (key === '13') {
+        if (game.gameStatus === GAME_READY) {
+          handleStart()
+        }
+        if (game.gameStatus === GAME_ENDED) {
+          handleRestart();
+        }
       }
     }
     document.addEventListener('keydown', handleKeyPress);
@@ -140,9 +120,26 @@ function App() {
     return function cleanUp() {
       document.removeEventListener('keydown', handleKeyPress);
     };
-  }, []);
+  }, [game.gameStatus]);
 
-  return <Board players={game.players} width={WIDTH} height={HEIGHT} />;
+  if (game.gameStatus === GAME_ENDED) {
+    const winningPlayers = game.players.filter(player => !player.hasDied);
+    if (winningPlayers.length === 0) {
+      result = 'Empate';
+    } else {
+      result = `Ganador: ${winningPlayers.map(player => `Jugador ${player.id}`).join(',')}`;
+    }
+  }
+
+
+  return (
+    <>
+      <h1 className="title">Reacted Tron</h1>
+      <Board players={game.players} gameStatus={game.gameStatus} width={WIDTH} height={HEIGHT} />
+      {game.gameStatus === GAME_ENDED && <Result onClick={handleRestart} result={result} />}
+      {game.gameStatus === GAME_READY && <Start onClick={handleStart} />}
+    </>
+  );
 }
 
 export default App;

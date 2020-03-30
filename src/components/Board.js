@@ -1,31 +1,34 @@
 import React, {useEffect, useRef} from 'react';
-import {UNIT} from 'config/consts';
+import {GAME_READY, UNIT} from 'config/consts';
 
-export default function Board({players, width, height}) {
+export default function Board({gameStatus, players, width, height}) {
   const canvasRef = useRef();
 
-  useEffect(function() {
-    const canvas = canvasRef.current;
-    const context = canvas.getContext('2d');
-    function drawBackground() {
-      context.strokeStyle = '#001900';
-      for (let i = 0; i <= width / UNIT + 2; i += 2) {
-        for (let j = 0; j <= height / UNIT + 2; j += 2) {
-          context.strokeRect(0, 0, UNIT * i, UNIT * j);
-        }
-      }
-      context.strokeStyle = '#000000';
-      context.lineWidth = 2;
-      for (let i = 1; i <= width / UNIT; i += 2) {
-        for (let j = 1; j <= height / UNIT; j += 2) {
-          context.strokeRect(0, 0, UNIT * i, UNIT * j);
-        }
-      }
-      context.lineWidth = 1;
-    }
+  useEffect(
+    function() {
+      if (gameStatus === GAME_READY) {
+        const canvas = canvasRef.current;
+        const context = canvas.getContext('2d');
+        context.clearRect(0, 0, canvas.width, canvas.height);
 
-    drawBackground();
-  }, [height, width]);
+        context.strokeStyle = '#001900';
+        for (let i = 0; i <= width / UNIT + 2; i += 2) {
+          for (let j = 0; j <= height / UNIT + 2; j += 2) {
+            context.strokeRect(0, 0, UNIT * i, UNIT * j);
+          }
+        }
+        context.strokeStyle = '#000000';
+        context.lineWidth = 2;
+        for (let i = 1; i <= width / UNIT; i += 2) {
+          for (let j = 1; j <= height / UNIT; j += 2) {
+            context.strokeRect(0, 0, UNIT * i, UNIT * j);
+          }
+        }
+        context.lineWidth = 1;
+      }
+    },
+    [height, width, gameStatus]
+  );
 
   useEffect(() => {
     const context = canvasRef.current.getContext('2d');
@@ -38,5 +41,20 @@ export default function Board({players, width, height}) {
     });
   }, [players]);
 
-  return <canvas ref={canvasRef} id="tronBoard" width={width} height={height} />;
+  return (
+    <>
+      <canvas ref={canvasRef} id="tronBoard" width={width} height={height} />
+      <div className="instructions">
+        {players.map(player => (
+          <div
+            className="instructions__player"
+            key={`player--${player.id}`}
+            style={{color: player.color}}
+          >
+            {`${player.id} : ${player.instructions}`}
+          </div>
+        ))}
+      </div>
+    </>
+  );
 }

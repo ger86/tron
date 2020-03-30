@@ -13,11 +13,11 @@ export default function Board({gameStatus, players, width, height}) {
 
         context.beginPath();
         context.strokeStyle = '#001900';
-        for (let i = UNIT * 2; i <= height; i += UNIT * 2) {
+        for (let i = UNIT * 2; i <= width; i += UNIT * 2) {
           context.moveTo(i, 0);
           context.lineTo(i, height);
         }
-        for (let i = UNIT * 2; i <= width; i += UNIT * 2) {
+        for (let i = UNIT * 2; i <= height; i += UNIT * 2) {
           context.moveTo(0, i);
           context.lineTo(width, i);
         }
